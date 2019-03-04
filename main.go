@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"flag"
+	"fmt"
 	"log"
+	"strings"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -13,6 +15,21 @@ var pass string
 var server string
 var database string
 var port int
+
+type DbRow struct {
+	Timestamp          uint
+	EventType          uint
+	Flags              uint
+	Attrib             uint
+	Hostname           string
+	ServiceDescription string
+	State              uint
+	Hard               uint
+	Retry              uint
+	DowntimeDepth      uint
+	Output             string
+	OutputLong         string
+}
 
 func init() {
 	flag.StringVar(&user, "u", "", "User account for the database.")
@@ -23,13 +40,15 @@ func init() {
 	flag.StringVar(&server, "server", "127.0.0.1", "Server for the databse. (long)")
 	flag.StringVar(&database, "d", "", "Database on the database server.")
 	flag.StringVar(&database, "database", "", "Database on the database server. (long)")
-
 	flag.IntVar(&port, "P", 3306, "Port to connect to.")
 	flag.IntVar(&port, "port", 3306, "Port to connect to. (long)")
 }
 
 func main() {
 	flag.Parse()
+
+	//var results DbRow
+	var hostnames []string
 
 	// Create database handle and confirm driver is present.
 	// DSN format "<user>:<pass>@tcp(<server>)/<database>"
@@ -46,7 +65,29 @@ func main() {
 	db.QueryRow("SELECT VERSION()").Scan(&version)
 	fmt.Printf("DSN: tcp://%s@%s:%d/%s Version: %s\n", user, server, port, database, version)
 
-	db.Query
+	rows, err := db.Query("select host_name from report_data")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var result string
+		err := rows.Scan(&result)
+		if err != nil {
+			log.Fatal(err)
+		}
+		hostnames = append(hostnames, result)
+	}
+
+	fmt.Println(strings.Join(hostnames, ","))
+
+	err = rows.Err()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	//rows, err := db.Query("delete from report_data where host_name like(?)", strings.Join(hostnames, ","))
 }
 
 // References: https://mariadb.com/resources/blog/using-go-with-mariadb
